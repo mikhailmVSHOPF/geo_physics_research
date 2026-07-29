@@ -36,23 +36,35 @@ class bags_array(object):
         x_r_list = [];
         y_r_list = [];
         frame_list = [];
+        
         df = pd.DataFrame(columns=['x_r', 'y_r', 't_r', 'frame', 'pixel_x_r', 'pixel_y_r']);
         with open(self.folder_path + "/" + path) as file:
             for line in file:
                 if re.search(regex_r, line):
                     data = re.findall(regex_r, line)[0]
-                    t_r = float(data[1]) * (1 / self.fps) - self.t_p
+                    t_r = float(data[1]) * (1 / self.fps)
                     frame = int(data[1])
                     x_r = float(data[2].replace(',', '.')) * self.dx
                     y_r = float(data[3].replace(',', '.')) * self.dx
-                    x_r_list.append(x_r);
-                    y_r_list.append(y_r);
+                    x_r_list.append(x_r)
+                    y_r_list.append(y_r)
                     t_r_list.append(t_r)
                     frame_list.append(frame)
         df['x_r'] = x_r_list;
         df['y_r'] = y_r_list;
         df['t_r'] = t_r_list;
         df['frame'] = frame_list;
+
+        # print(self.t_p)
+        
+        # if (self.t_p is None):
+        #     min_time = min(df['t_r'])
+        #     self.t_p = min_time
+        #     print(min_time)
+        #     self.x_p = df[df['t_r'] == min_time]['x_r'].mean()
+        #     self.y_p = df[df['t_r'] == min_time]['y_r'].mean()
+
+        # df['t_r'] = df['t_r'] - self.t_p
 
 
         x_r_array = [];
@@ -81,6 +93,12 @@ class bags_array(object):
                                              'dx': float(self.dx), 
                                              'fps':int(self.fps)
         })
+
+        self.t_p = df_point_of_gap['t'].min()
+        self.x_p = df_point_of_gap[df_point_of_gap['t'] == self.t_p]['x_r']
+        self.y_p = df_point_of_gap[df_point_of_gap['t'] == self.t_p]['y_r']
+        print(self.t_p)
+        
         return df_point_of_gap;
 
     def point_canopy(self, path):
@@ -196,7 +214,6 @@ class bags_array(object):
             self.diametr = None
 
 
-
     def point_finder(self, path):
                   regex_point = re.compile(r'^(point)\t(center)\t(\d+)\t(\d+,\d+)\t(\d+,\d+)')
                   with open(self.folder_path + "/" + path) as file:
@@ -246,7 +263,7 @@ class bags_array(object):
     def __init__(self, folder_path):
         self.df = pd.DataFrame(columns=['times', 'thicknesses','Weber', 'velocities_x', 'velocities_y', 'velocities' , 'diametr', 'sigma'])
         self.result = []
-        self.x_p = None; self.y_p = None
+        self.x_p = None; self.y_p = None; self.t_p = None
         self.folder_path = folder_path
         self.find_paths_to_files()
         self.read_config_file()
@@ -256,17 +273,17 @@ class bags_array(object):
         name = [21, 25, 29, 33, 37, 41, 45, 49]
         velocity_by_F = dict(zip(name, wind_velocities))
 
-        df_point_of_gap_list = []
-        df_array = []
-
+        df_result_all = []
         for file in self.files_path:
             print(file)
             self.wind_velocity = velocity_by_F.get(int(self.F))
-            self.point_finder(file) ##ищет центр первоначальный 
+            # self.point_finder(file) ##ищет центр первоначальный 
             df_points_of_gap = self.points_of_gap(file) ##точки разрыва для последующей аппроксимации 
             df_points_of_velocity = self.line_points(file) ##достает траектории разрыва 
             df_points_of_diametr = self.point_of_diametr(file) ## характеристический размер бэга
             df_points_of_canopy = self.point_canopy(file) ##достает из файла точки купола
+            if len(df_points_of_canopy) == 0:
+                continue
         
 
             ##ДЛЯ АНИМАЦИИ
@@ -325,13 +342,10 @@ class bags_array(object):
             df_result['dR/dt'] = (df_result['R_e'] - df_result['R_s'])/(df_result['t_e'] - df_result['t_s'])
             df_result['dQ/dt'] = (df_result['teta_e'] - df_result['teta_s'])/(df_result['t_e'] - df_result['t_s'])
             df_result['dphi/dt'] = (df_result['phi_e'] - df_result['phi_s'])/(df_result['t_e'] - df_result['t_s'])
-            df_result['t_average'] = (df_result['t_e'] + df_result['t_s'])/2
-            df_result['R_average'] = (df_result['R_e'] + df_result['R_s'])/2
-            df_result['t_average'] = (df_result['t_e'] + df_result['t_s'])/2
-            df_result['teta_average'] = (df_result['teta_e'] + df_result['teta_s'])/2
-            df_result['velocity'] = np.sqrt(df_result['dR/dt']**2 + df_result['R_average']**2 * df_result['dQ/dt']**2 + np.sin( df_result['teta_average'])**2 * df_result['R_average']**2 * df_result['dphi/dt']**2)
-            df_array.append(df_result)
-            df_point_of_gap_list.append(df_points_of_gap)
-        self.df_array = pd.concat(df_array, ignore_index= True)
-        self.df_point_of_gap = pd.concat(df_point_of_gap_list, ignore_index=True)
+            df_result['t'] = (df_result['t_e'] + df_result['t_s'])/2
+            df_result['R'] = (df_result['R_e'] + df_result['R_s'])/2
+            df_result['teta'] = (df_result['teta_e'] + df_result['teta_s'])/2
+            df_result['velocity'] = np.sqrt(df_result['dR/dt']**2 + df_result['R']**2 * df_result['dQ/dt']**2 + np.sin( df_result['teta'])**2 * df_result['R']**2 * df_result['dphi/dt']**2)
+            df_result_all.append(df_result)
+        self.df_result = pd.concat(df_result_all, ignore_index= True)
     
