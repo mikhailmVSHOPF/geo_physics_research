@@ -142,6 +142,10 @@ class bags_array(object):
             'dx': float(self.dx),
             'fps': int(self.fps)
         })
+        if self.diametr == None:
+            self.diametr = 2*df_canopy[df_canopy['t'] == df_canopy['t'].min()]['R_c'][0]
+            self.diametr_from_approximation = True
+        
         return df_canopy
 
     def line_points(self, path):
@@ -178,9 +182,17 @@ class bags_array(object):
                     t_e_list.append(t_e)
 
         # Заполняем DataFrame
-        df=pd.DataFrame({'x_s': x_s_list, 'x_e': x_e_list, "y_s":y_s_list, 'y_e':y_e_list, 't_s':t_s_list, 't_e':t_e_list, 'frame_s':frame_s, 'frame_e':frame_e,
-                         'source_path': str(self.folder_path + "/" + path), 'dx': float(self.dx), 
-                                             'fps':int(self.fps)})
+        df=pd.DataFrame({'x_s': x_s_list,
+                         'x_e': x_e_list,
+                         "y_s":y_s_list,
+                         'y_e':y_e_list,
+                         't_s':t_s_list,
+                         't_e':t_e_list,
+                         'frame_s':frame_s,
+                         'frame_e':frame_e,
+                         'source_path': str(self.folder_path + "/" + path),
+                         'dx': float(self.dx), 
+                         'fps':int(self.fps)})
         
         return df
 
@@ -252,6 +264,7 @@ class bags_array(object):
     ###################################### ФУНКЦИИ ДЛЯ РАСЧЕТОВ
     
     def __init__(self, folder_path):
+        self.diametr_from_approximation = False
         self.df = pd.DataFrame(columns=['times', 'thicknesses','Weber', 'velocities_x', 'velocities_y', 'velocities' , 'diametr', 'sigma'])
         self.result = []
         self.x_p = None; self.y_p = None; self.t_p = None
@@ -278,66 +291,81 @@ class bags_array(object):
         
 
             ##ДЛЯ АНИМАЦИИ
-            df_points_of_gap['x_c'] = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
-            df_points_of_gap['y_c'] = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
-            df_points_of_gap['R'] = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
 
-            df_points_of_velocity['x_s'] = df_points_of_velocity['x_s'] -  np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
-            df_points_of_velocity['y_s'] =  df_points_of_velocity['y_s'] - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            t_e = df_points_of_velocity['t_e']
+            t_s = df_points_of_velocity['t_s']
             
-            df_points_of_velocity['x_e'] = df_points_of_velocity['x_e'] - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
-            df_points_of_velocity['y_e'] = df_points_of_velocity['y_e'] -  np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            x_c = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
+            y_c = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            R = np.interp(df_points_of_gap['t'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
+
+            x_s = df_points_of_velocity['x_s'] -  np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
+            y_s =  df_points_of_velocity['y_s'] - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            
+            x_e = df_points_of_velocity['x_e'] - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
+            y_e = df_points_of_velocity['y_e'] -  np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
 
 
             ##Для будущего расчета скорости движения центра точек разрыва
-            df_points_of_velocity['x_r_e'] = np.interp(df_points_of_velocity['t_e'], df_points_of_gap['t'], df_points_of_gap['x_r']) - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
-            df_points_of_velocity['y_r_e'] = np.interp(df_points_of_velocity['t_e'], df_points_of_gap['t'], df_points_of_gap['y_r']) - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
-            df_points_of_velocity['x_r_s'] = np.interp(df_points_of_velocity['t_s'], df_points_of_gap['t'], df_points_of_gap['x_r']) - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
-            df_points_of_velocity['y_r_s'] = np.interp(df_points_of_velocity['t_s'], df_points_of_gap['t'], df_points_of_gap['y_r']) - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            x_r_e = np.interp(df_points_of_velocity['t_e'], df_points_of_gap['t'], df_points_of_gap['x_r']) - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
+            y_r_e = np.interp(df_points_of_velocity['t_e'], df_points_of_gap['t'], df_points_of_gap['y_r']) - np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
+            x_r_s = np.interp(df_points_of_velocity['t_s'], df_points_of_gap['t'], df_points_of_gap['x_r']) - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['x_c'])
+            y_r_s = np.interp(df_points_of_velocity['t_s'], df_points_of_gap['t'], df_points_of_gap['y_r']) - np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['y_c'])
         
 
-            df_points_of_velocity['R_s'] = np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
-            df_points_of_velocity['R_e'] = np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
+            R_s = np.interp(df_points_of_velocity['t_s'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
+            R_e = np.interp(df_points_of_velocity['t_e'], df_points_of_canopy['t'], df_points_of_canopy['R_c'])
 
+            teta_s = np.arccos(y_s/R_s)
+            teta_e = np.arccos(y_e/R_e)
+
+            teta_r_s = np.arccos(y_r_s/R_s)
+            teta_r_e = np.arccos(y_r_e/R_e)
+
+            phi_s = np.arctan(np.sqrt(R_s**2 - x_s**2 - y_s**2)/x_s)
+            phi_e = np.arctan(np.sqrt(R_e**2 - x_e**2 - y_e**2)/x_e)
+
+            phi_r_s = np.arctan(np.sqrt(R_s**2 - x_r_s**2 - y_r_s**2)/x_r_s)
+            phi_r_e = np.arctan(np.sqrt(R_e**2 - x_r_e**2 - y_r_e**2)/x_r_e)
+
+
+            teta_e = teta_e - teta_r_e
+            teta_s = teta_s - teta_r_s
+
+            phi_e = phi_e - phi_r_e
+            phi_s = phi_s - phi_r_s
+
+            t = (t_e + t_s)/2
+            R = (R_e + R_s)/2
+            teta = (teta_e + teta_s)/2
+            phi = (phi_e + phi_s)/2
+            
+            dR_dt = (R_e - R_s)/(t_e - t_s)
+            dQ_dt = (teta_e -teta_s)/(t_e - t_s)
+            dphi_dt = (phi_e - phi_s)/(t_e - t_s)
+            
+            velocity = np.sqrt(dR_dt**2 + R**2 * dQ_dt**2 + np.sin( teta)**2 * R**2 * dphi_dt**2)
+            
             df_points_of_velocity = df_points_of_velocity.reindex(sorted(df_points_of_velocity.columns), axis=1)
             df_result = pd.DataFrame({
-                'teta_s': np.arccos(df_points_of_velocity['y_s']/df_points_of_velocity['R_s']),
-                'teta_e': np.arccos(df_points_of_velocity['y_e']/df_points_of_velocity['R_e']),
-
-                'teta_r_s': np.arccos(df_points_of_velocity['y_r_s']/df_points_of_velocity['R_s']),
-                'teta_r_e': np.arccos(df_points_of_velocity['y_r_e']/df_points_of_velocity['R_e']),
-
-                'phi_s': np.arctan(np.sqrt(df_points_of_velocity['R_s']**2 - df_points_of_velocity['x_s']**2 - df_points_of_velocity['y_s']**2)/df_points_of_velocity['x_s']),
-                'phi_e': np.arctan(np.sqrt(df_points_of_velocity['R_e']**2 - df_points_of_velocity['x_e']**2 - df_points_of_velocity['y_e']**2)/df_points_of_velocity['x_e']),
-
-                'phi_r_s': np.arctan(np.sqrt(df_points_of_velocity['R_s']**2 - df_points_of_velocity['x_r_s']**2 - df_points_of_velocity['y_r_s']**2)/df_points_of_velocity['x_r_s']),
-                'phi_r_e': np.arctan(np.sqrt(df_points_of_velocity['R_e']**2 - df_points_of_velocity['x_r_e']**2 - df_points_of_velocity['y_r_e']**2)/df_points_of_velocity['x_r_e']),
-
-                'R_s':  df_points_of_velocity['R_s'],
-                'R_e':  df_points_of_velocity['R_e'],
-                't_s':  df_points_of_velocity['t_s'],
-                't_e':  df_points_of_velocity['t_e'],
-                'fps': df_points_of_velocity['fps'],
-                'dx': df_points_of_velocity['dx'],
+                'velocity': velocity,
+                't': t, 
+                'R': R, 
+                'teta': teta,
+                'phi': phi,
+                'fps': self.fps,
+                'dx': self.dx,
                 'source_path':  df_points_of_velocity['source_path'],
                 'wind_velocity': self.wind_velocity,
                 'F': int(self.F),
-                'diametr': self.diametr
+                'sigma': self.sigma,
+                'rho': self.rho, 
+                'diametr': self.diametr, 
+                'diametr_from_approximation': self.diametr_from_approximation, 
+                'x': (x_s + x_e)/2,
+                'y': (y_s + y_e)/2, 
+                
             })
-
-            df_result['teta_e'] = df_result['teta_e'] - df_result['teta_r_e']
-            df_result['teta_s'] = df_result['teta_s'] - df_result['teta_r_s']
-
-            df_result['phi_e'] = df_result['phi_e'] - df_result['phi_r_e']
-            df_result['phi_s'] = df_result['phi_s'] - df_result['phi_r_s']
-
-            df_result['dR/dt'] = (df_result['R_e'] - df_result['R_s'])/(df_result['t_e'] - df_result['t_s'])
-            df_result['dQ/dt'] = (df_result['teta_e'] - df_result['teta_s'])/(df_result['t_e'] - df_result['t_s'])
-            df_result['dphi/dt'] = (df_result['phi_e'] - df_result['phi_s'])/(df_result['t_e'] - df_result['t_s'])
-            df_result['t'] = (df_result['t_e'] + df_result['t_s'])/2
-            df_result['R'] = (df_result['R_e'] + df_result['R_s'])/2
-            df_result['teta'] = (df_result['teta_e'] + df_result['teta_s'])/2
-            df_result['velocity'] = np.sqrt(df_result['dR/dt']**2 + df_result['R']**2 * df_result['dQ/dt']**2 + np.sin( df_result['teta'])**2 * df_result['R']**2 * df_result['dphi/dt']**2)
             df_result_all.append(df_result)
         self.df_result = pd.concat(df_result_all, ignore_index= True)
     

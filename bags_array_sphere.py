@@ -50,21 +50,18 @@ class bags_array(object):
                     y_r_list.append(y_r)
                     t_r_list.append(t_r)
                     frame_list.append(frame)
+
         df['x_r'] = x_r_list;
         df['y_r'] = y_r_list;
         df['t_r'] = t_r_list;
         df['frame'] = frame_list;
-
-        # print(self.t_p)
         
-        # if (self.t_p is None):
-        #     min_time = min(df['t_r'])
-        #     self.t_p = min_time
-        #     print(min_time)
-        #     self.x_p = df[df['t_r'] == min_time]['x_r'].mean()
-        #     self.y_p = df[df['t_r'] == min_time]['y_r'].mean()
+        if self.t_p is None:
+            self.t_p = df['t_r'].min()
+            self.x_p = df[df['t_r'] == self.t_p ]['x_r'].mean()
+            self.y_p = df[df['t_r'] == self.t_p ]['y_r'].mean()
 
-        # df['t_r'] = df['t_r'] - self.t_p
+        df['t_r'] = df['t_r'] - self.t_p
 
 
         x_r_array = [];
@@ -93,11 +90,6 @@ class bags_array(object):
                                              'dx': float(self.dx), 
                                              'fps':int(self.fps)
         })
-
-        self.t_p = df_point_of_gap['t'].min()
-        self.x_p = df_point_of_gap[df_point_of_gap['t'] == self.t_p]['x_r']
-        self.y_p = df_point_of_gap[df_point_of_gap['t'] == self.t_p]['y_r']
-        print(self.t_p)
         
         return df_point_of_gap;
 
@@ -215,15 +207,14 @@ class bags_array(object):
 
 
     def point_finder(self, path):
-                  regex_point = re.compile(r'^(point)\t(center)\t(\d+)\t(\d+,\d+)\t(\d+,\d+)')
-                  with open(self.folder_path + "/" + path) as file:
-                      for line in file:
-                          if re.search(regex_point, line):
-                              data = re.findall(regex_point, line)[0]
-                              self.t_p = float(data[2])*(1/self.fps)
-                              self.x_p = float(data[3].replace(',', '.'))*self.dx
-                              self.y_p = float(data[4].replace(',', '.'))*self.dx
-                              break;
+        regex_point = re.compile(r'^(point)\t(center)\t(\d+)\t(\d+,\d+)\t(\d+,\d+)')  
+        with open(self.folder_path + "/" + path) as file:
+            for line in file:
+                if re.search(regex_point, line):
+                    data = re.findall(regex_point, line)[0]
+                    self.t_p = float(data[2])*(1/self.fps)
+                    self.x_p = float(data[3].replace(',', '.'))*self.dx
+                    self.y_p = float(data[4].replace(',', '.'))*self.dx
     
 
     ###################################### ЧТЕНИЕ ФАЙЛОВ ЗАКОНЧИЛОСЬ
@@ -277,7 +268,7 @@ class bags_array(object):
         for file in self.files_path:
             print(file)
             self.wind_velocity = velocity_by_F.get(int(self.F))
-            # self.point_finder(file) ##ищет центр первоначальный 
+            self.point_finder(file) ##ищет центр первоначальный 
             df_points_of_gap = self.points_of_gap(file) ##точки разрыва для последующей аппроксимации 
             df_points_of_velocity = self.line_points(file) ##достает траектории разрыва 
             df_points_of_diametr = self.point_of_diametr(file) ## характеристический размер бэга
@@ -330,6 +321,7 @@ class bags_array(object):
                 'dx': df_points_of_velocity['dx'],
                 'source_path':  df_points_of_velocity['source_path'],
                 'wind_velocity': self.wind_velocity,
+                'F': int(self.F),
                 'diametr': self.diametr
             })
 
